@@ -1,0 +1,116 @@
+---
+title: 
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    extra_dependencies: ["tabu", "booktabs", "xcolor", "colortbl", "textcomp"]
+#fontfamily: helvet
+mainfont: Arial
+fontsize: 11pt
+params: 
+  contractor: 'blank'
+  client: 'blank'
+  item: 'blank'
+---
+
+```{r setup, include=F}
+knitr::opts_chunk$set(echo = F)
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+library(fontawesome)
+
+options(knitr.kable.NA = '')
+options(scipen = 999)
+
+name <- params[['contractor']][['name']]
+date <- format(Sys.Date(), '%d.%m.%Y')
+signature <- params[['contractor']][['signature']] %>% image_scale('x50')
+pcode <- params[['contractor']][['address_pcode']] %>% as.character()
+city <- params[['contractor']][['address_city']] %>% as.character()
+```
+
+
+\makebox[0.5\linewidth][l]{\large\textbf{`r name`} }\makebox[0.5\linewidth][r]{\huge\textbf{INVOICE}} \newline
+
+`r params[['contractor']][['address_street']]` \newline
+`r params[['contractor']][['address_pcode']] %>% as.character()` `r params[['contractor']][['address_city']]` \newline
+`r fa("envelope", fill = "darkred")` `r params[['contractor']][['mail']] %>% as.character()` \newline
+`r fa("phone-square", fill = "darkred")` `r params[['contractor']][['phone']] %>% as.character() %>% str_remove("'")`
+
+\begin{flushright}`r date`\end{flushright} 
+ 
+**Recipient** \newline
+`r params[['client']][['name']]` \newline
+`r params[['client']][['address_street']]` \newline
+`r params[['client']][['address_pcode']] %>% as.character()` `r params[['client']][['address_city']]` \newline
+
+Thank you for your order. We charge you for the following services
+
+```{r table, echo=F, eval = T}
+items <- tibble(
+  item = params[['item']][['name']],
+  item_desc = params[['item']][['desc']],
+  hours = as.numeric(params[['item']][['days']]),
+  rate = as.numeric(params[['contractor']][['salary']])
+  ) %>% 
+  mutate(
+    id = row_number(),
+    amount = round(hours * rate, 2)
+    )
+
+sums <- items %>% group_by() %>% summarize(amount = sum(amount, na.rm = T)) %>% mutate(item = 'Total')
+
+items %>%
+  select(id, item, item_desc, hours, rate, amount) %>% 
+  mutate(
+    rate = paste('\\texteuro  \\enspace', format(rate, digits = 2, nsmall = 1, big.mark = '.', decimal.mark = ',')),
+    amount = paste('\\texteuro  \\enspace', format(amount, digits = 2, nsmall = 1, big.mark = '.', decimal.mark = ','))
+  ) %>% 
+  knitr::kable(format = 'latex', booktabs = T, escape = F, col.names = c('\\#', 'Item', 'Description', 'Hours', 'Rate', 'Amount'), align = c('c', 'l', 'l', 'r', 'r', 'r')) %>%
+  row_spec(0, bold = T) %>% 
+  column_spec(1, width = '.5cm') %>%
+  column_spec(2, width = '3cm') %>%
+  column_spec(3, width = '5cm') %>%
+  column_spec(c(4, 5, 6), width = '2cm') %>% 
+  sub("\\\\toprule", "\\\\toprule[1pt]", .) %>% 
+  sub("\\\\bottomrule", "", .)
+```
+
+\renewcommand{\arraystretch}{1.5}
+
+```{r table_sums, echo=F, eval = T}
+sums <- 
+  items %>% 
+  group_by() %>% 
+  summarize(amount = sum(amount, na.rm = T)) %>% 
+  mutate(id = ' ', item = ' ', item_desc = ' ', hours = ' ', rate = 'Total')
+
+sums %>%
+  select(id, item, item_desc, hours, rate, amount) %>% 
+  mutate(amount = paste('\\texteuro \\enspace', format(amount, digits = 2, nsmall = 1, big.mark = '.', decimal.mark = ','))) %>% 
+  knitr::kable(format = 'latex', booktabs = T, escape = F, col.names = NULL, align = c('r', 'r', 'r', 'r', 'r', 'r'), linesep = "\\addlinespace") %>% 
+  row_spec(1, bold = T, color = "white", background = "black") %>% 
+  column_spec(1, width = '.5cm') %>%
+  column_spec(2, width = '3cm') %>%
+  column_spec(3, width = '5cm') %>%
+  column_spec(c(4, 5, 6), width = '2cm') %>%
+  sub("\\\\toprule", "", .) %>% 
+  sub("\\\\bottomrule", "\\\\bottomrule[1pt]", .)
+```
+
+\vskip 1cm
+
+\centering\large Thanks for your trust and good cooperation!
+
+\centering\large Best regards to `r params[['client']][['address_street']]`
+
+\vskip 2cm
+
+\centerline{\raisebox{-.3cm}[.3cm][0cm]{\makebox[6cm][c]{`r date`, `r city`}}\makebox[0.5cm][c]{}\raisebox{-.9cm}[.2cm][0cm]{\makebox[6cm][c]{`r signature`}}}
+\centerline{\makebox[6cm][c]{\hrulefill}\makebox[0.5cm][c]{}\makebox[6cm][c]{\hrulefill}}
+\centerline{\makebox[6cm][c]{Date, Place}\makebox[0.5cm][c]{}\makebox[6cm][c]{`r name`}}
+ 
+\hrulefill
+
+\begin{center}\textbf{Institute} `r params[['contractor']][['bank_branch_addr']]` \textbf{IBAN} `r params[['contractor']][['ac_no']]` \textbf{BIC} `r params[['contractor']][['bic']]`\end{center}
